@@ -1,6 +1,9 @@
 const params = new URLSearchParams(location.search);
 const pipeId = params.get('pipe') === 'off' ? '' : SETTINGS.datapipe_id;
 const pid = Math.random().toString(36).slice(2, 12);
+const only = params.get('only') || '';
+const EXPS = only ? SETTINGS.exps.filter(e => e.key === only) : SETTINGS.exps;
+const single = EXPS.length === 1;
 const filename = `medusa_face_${pid}.csv`;
 let completed = false;
 const showEnd = failed => {
@@ -23,12 +26,12 @@ const jsPsych = initJsPsych({
   }],
 });
 const R = jsPsych.randomization;
-jsPsych.data.addProperties({ pid, crowd_id: params.get('id') || '' });
+jsPsych.data.addProperties({ pid, crowd_id: params.get('id') || '', only });
 
 const w = R.shuffle(SETTINGS.women), m = R.shuffle(SETTINGS.men);
 const people = { kanizsa: { w: w.slice(0, 2), m: m.slice(0, 2) }, texture: { w: w.slice(2), m: m.slice(2) } };
 const fileOf = t => `${t.l1}_${t.l2}_${t.cond}_${t.side}.jpg`;
-const expOrder = R.shuffle(SETTINGS.exps);
+const expOrder = R.shuffle(EXPS);
 const parts = expOrder.map((ex, p) => {
   const g = people[ex.key], combos = [];
   for (const a of g.w) for (const b of g.m) combos.push([a, b], [b, a]);
@@ -80,7 +83,7 @@ const consent = {
   stimulus: `<div class="left">
     <h3>人物の顔の印象に関する実験</h3>
     <p>この度は，実験にご参加いただき，誠にありがとうございます。</p>
-    <p>本研究では，人間の認知特性を明らかにすることを目的として，コンピュータを用いた調査を行います。所要時間は，準備や説明を含めて約15分です。</p>
+    <p>本研究では，人間の認知特性を明らかにすることを目的として，コンピュータを用いた調査を行います。所要時間は，準備や説明を含めて約${single ? 5 : 15}分です。</p>
     <p>本研究への参加は，参加者の皆様の自由な意思によるものであり，参加を辞退されても不利益は一切ございません。また，参加に同意された後でも，理由を問わず，途中で同意を撤回できます。その場合も，不利益が生じることはございません。</p>
     <p>なお，本研究を通じて得られた情報は，本研究に直接関わる目的以外には使用されません。研究の成果は学術論文や学会発表などで公表されることがありますが，データは匿名化し，統計処理した結果だけを公表するため，個人が特定されることはございません。匿名化したデータは，ほかの研究者が結果を検証できるよう，学術研究用のデータリポジトリで公開します。公開するデータには，氏名など個人を特定できる情報は含まれません。</p>
     <p>謝礼はYahoo!クラウドソーシングを通して支払われます。実験の最後に作業完了コードが表示されますので，必ず控えて，Yahoo!クラウドソーシングのページに戻って入力してください。</p>
@@ -117,12 +120,12 @@ const intro = {
   type: jsPsychHtmlButtonResponse,
   stimulus: `<div class="left"><h3>課題の説明</h3>
     <p>これから，2人の人物の顔が写った画像をお見せします。</p>
-    <p>実験は前半と後半に分かれ，それぞれ3つの課題があります。課題ごとに，評価していただく特徴が違います。前半では，課題ごとにはじめに特徴の説明があります。</p>
+    <p>${single ? '実験には3つの課題があります。課題ごとに，評価していただく特徴が違います。課題ごとにはじめに特徴の説明があります。' : '実験は前半と後半に分かれ，それぞれ3つの課題があります。課題ごとに，評価していただく特徴が違います。前半では，課題ごとにはじめに特徴の説明があります。'}</p>
     <p>各画面では，左右どちらかの人物について評価していただきます。どちらの人物を評価するかは，画像の上に示します。</p></div>`,
   choices: ['次へ'],
 };
 function dimExplain(dim, p, b) {
-  const head = `<h3>${p === 0 ? '前半' : '後半'}：課題${b + 1} (全3課題)</h3>`;
+  const head = single ? `<h3>課題${b + 1} (全3課題)</h3>` : `<h3>${p === 0 ? '前半' : '後半'}：課題${b + 1} (全3課題)</h3>`;
   if (p > 0) return [{
     type: jsPsychHtmlButtonResponse,
     stimulus: `<div class="left">${head}<p>この課題では，「${dim.name}」について，画像に写っている人物に対して評価を行っていただきます。</p>
@@ -169,7 +172,7 @@ const attention = {
   data: { phase: 'attention' },
   on_finish: d => { d.acq_pass = d.response.acq === '3'; },
 };
-const attentionAt = R.randomInt(0, 5);
+const attentionAt = R.randomInt(0, parts.length * 3 - 1);
 const middle = {
   type: jsPsychHtmlButtonResponse,
   stimulus: '<div class="left"><h3>後半</h3><p>前半は以上です。後半では，背景の違う画像をお見せします。評価していただく特徴は前半と同じ3つです。</p></div>',
